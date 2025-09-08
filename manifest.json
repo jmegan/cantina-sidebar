@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cantina Chatbot Explorer",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Browse Cantina's chatbot directory in Chrome's side panel for quick access while browsing",
   
   "permissions": [

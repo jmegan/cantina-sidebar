@@ -7,6 +7,8 @@
     // Configuration
     const CANTINA_BASE_URL = 'https://cantina.com';
     const CANTINA_EXPLORE_URL = `${CANTINA_BASE_URL}/explore`;
+    const CANTINA_FEED_URL = `${CANTINA_BASE_URL}/homefeed`;
+    const CANTINA_HOME_URL = CANTINA_BASE_URL;
     const LOAD_TIMEOUT = 15000; // 15 seconds timeout
 
     // DOM Elements
@@ -17,8 +19,8 @@
         iframe: null,
         refreshBtn: null,
         retryBtn: null,
-        backBtn: null,
-        forwardBtn: null,
+        exploreBtn: null,
+        feedBtn: null,
         homeBtn: null,
         currentUrlDisplay: null,
         copyUrlBtn: null,
@@ -43,8 +45,8 @@
         elements.iframe = document.getElementById('cantina-frame');
         elements.refreshBtn = document.getElementById('refresh-btn');
         elements.retryBtn = document.getElementById('retry-btn');
-        elements.backBtn = document.getElementById('back-btn');
-        elements.forwardBtn = document.getElementById('forward-btn');
+        elements.exploreBtn = document.getElementById('explore-btn');
+        elements.feedBtn = document.getElementById('feed-btn');
         elements.homeBtn = document.getElementById('home-btn');
         elements.currentUrlDisplay = document.getElementById('current-url');
         elements.copyUrlBtn = document.getElementById('copy-url-btn');
@@ -55,9 +57,6 @@
 
         // Start loading
         loadCantina(CANTINA_EXPLORE_URL);
-
-        // Update navigation button states
-        updateNavigationButtons();
     }
 
     /**
@@ -71,12 +70,12 @@
         }
 
         // Navigation buttons
-        if (elements.backBtn) {
-            elements.backBtn.addEventListener('click', handleBack);
+        if (elements.exploreBtn) {
+            elements.exploreBtn.addEventListener('click', handleExplore);
         }
 
-        if (elements.forwardBtn) {
-            elements.forwardBtn.addEventListener('click', handleForward);
+        if (elements.feedBtn) {
+            elements.feedBtn.addEventListener('click', handleFeed);
         }
 
         if (elements.homeBtn) {
@@ -181,7 +180,6 @@
         }
 
         showMain();
-        updateNavigationButtons();
     }
 
     /**
@@ -204,8 +202,6 @@
                 navigationHistory.push(newUrl);
                 historyIndex = navigationHistory.length - 1;
             }
-
-            updateNavigationButtons();
         }
     }
 
@@ -220,49 +216,23 @@
         }
     }
 
-    /**
-     * Update navigation button states
-     */
-    function updateNavigationButtons() {
-        // Back button
-        if (elements.backBtn) {
-            elements.backBtn.disabled = historyIndex <= 0;
-        }
 
-        // Forward button
-        if (elements.forwardBtn) {
-            elements.forwardBtn.disabled = historyIndex >= navigationHistory.length - 1;
-        }
+    /**
+     * Handle explore navigation
+     */
+    function handleExplore(event) {
+        event.preventDefault();
+        console.log('Navigating to Explore page');
+        loadCantina(CANTINA_EXPLORE_URL);
     }
 
     /**
-     * Handle back navigation
+     * Handle feed navigation
      */
-    function handleBack(event) {
+    function handleFeed(event) {
         event.preventDefault();
-        console.log('Back button clicked. History:', navigationHistory, 'Index:', historyIndex);
-        
-        if (historyIndex > 0) {
-            historyIndex--;
-            const targetUrl = navigationHistory[historyIndex];
-            console.log('Navigating back to:', targetUrl);
-            loadCantina(targetUrl);
-        } else {
-            console.log('Cannot go back - at beginning of history');
-        }
-    }
-
-    /**
-     * Handle forward navigation
-     */
-    function handleForward(event) {
-        event.preventDefault();
-        
-        if (historyIndex < navigationHistory.length - 1) {
-            historyIndex++;
-            const targetUrl = navigationHistory[historyIndex];
-            loadCantina(targetUrl);
-        }
+        console.log('Navigating to Feed page');
+        loadCantina(CANTINA_FEED_URL);
     }
 
     /**
@@ -270,17 +240,8 @@
      */
     function handleHome(event) {
         event.preventDefault();
-        
-        if (currentUrl !== CANTINA_EXPLORE_URL) {
-            loadCantina(CANTINA_EXPLORE_URL);
-            
-            // Update history
-            if (historyIndex < navigationHistory.length - 1) {
-                navigationHistory = navigationHistory.slice(0, historyIndex + 1);
-            }
-            navigationHistory.push(CANTINA_EXPLORE_URL);
-            historyIndex = navigationHistory.length - 1;
-        }
+        console.log('Navigating to Home page');
+        loadCantina(CANTINA_HOME_URL);
     }
 
     /**
