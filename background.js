@@ -152,25 +152,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return false;
     }
     
-    // Check if incognito is allowed
-    chrome.extension.isAllowedIncognitoAccess((isAllowed) => {
-      if (!isAllowed) {
-        sendResponse({ success: false, error: 'Incognito access not allowed' });
-        return;
-      }
-      
-      chrome.windows.create({
-        url: request.url,
-        incognito: true
-      }, (window) => {
-        if (chrome.runtime.lastError) {
-          console.error('Failed to create incognito window:', chrome.runtime.lastError);
-          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+    // Simply try to create the incognito window
+    // Chrome will handle the case where incognito is disabled
+    chrome.windows.create({
+      url: request.url,
+      incognito: true
+    }, (window) => {
+      if (chrome.runtime.lastError) {
+        console.error('Failed to create incognito window:', chrome.runtime.lastError);
+        // Check if it's because incognito is disabled
+        if (chrome.runtime.lastError.message.includes('Incognito mode is disabled')) {
+          sendResponse({ success: false, error: 'Incognito mode is disabled' });
         } else {
-          console.log('Incognito window created for:', request.url);
-          sendResponse({ success: true, windowId: window.id });
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
         }
-      });
+      } else {
+        console.log('Incognito window created for:', request.url);
+        sendResponse({ success: true, windowId: window.id });
+      }
     });
     return true; // Keep message channel open for async response
   }

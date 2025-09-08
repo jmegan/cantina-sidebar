@@ -379,33 +379,28 @@
             return;
         }
         
-        // Check if extension is allowed in incognito
-        chrome.extension.isAllowedIncognitoAccess((isAllowed) => {
-            if (!isAllowed) {
-                alert('This extension is not allowed in incognito mode. Please enable it in Chrome extensions settings.');
+        // Open current URL in incognito window
+        chrome.runtime.sendMessage({
+            action: 'openIncognito',
+            url: currentUrl
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('Runtime error:', chrome.runtime.lastError);
+                // Don't show alert for minor errors
                 return;
             }
             
-            // Open current URL in incognito window
-            chrome.runtime.sendMessage({
-                action: 'openIncognito',
-                url: currentUrl
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error('Runtime error:', chrome.runtime.lastError);
-                    alert('Failed to open in incognito mode. Please try again.');
-                    return;
+            if (response && response.success) {
+                console.log('Opened in incognito window');
+                // Show a notification or feedback
+                showIncognitoNotification();
+            } else if (response && response.error) {
+                console.error('Failed to open in incognito:', response.error);
+                // Only show user-friendly message without technical details
+                if (response.error.includes('Incognito mode is disabled')) {
+                    alert('Please enable incognito mode in Chrome settings to use this feature.');
                 }
-                
-                if (response && response.success) {
-                    console.log('Opened in incognito window');
-                    // Show a notification or feedback
-                    showIncognitoNotification();
-                } else {
-                    console.error('Failed to open in incognito:', response?.error);
-                    alert('Failed to open in incognito mode. Please make sure incognito mode is enabled in Chrome.');
-                }
-            });
+            }
         });
     }
 
