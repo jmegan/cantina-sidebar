@@ -22,7 +22,7 @@
         homeBtn: null,
         currentUrlDisplay: null,
         copyUrlBtn: null,
-        incognitoSwitch: null
+        incognitoBtn: null
     };
 
     // State
@@ -48,7 +48,7 @@
         elements.homeBtn = document.getElementById('home-btn');
         elements.currentUrlDisplay = document.getElementById('current-url');
         elements.copyUrlBtn = document.getElementById('copy-url-btn');
-        elements.incognitoSwitch = document.getElementById('incognito-switch');
+        elements.incognitoBtn = document.getElementById('incognito-btn');
 
         // Set up event listeners
         setupEventListeners();
@@ -95,9 +95,9 @@
             elements.copyUrlBtn.addEventListener('click', handleCopyUrl);
         }
 
-        // Incognito toggle
-        if (elements.incognitoSwitch) {
-            elements.incognitoSwitch.addEventListener('change', handleIncognitoToggle);
+        // Incognito button
+        if (elements.incognitoBtn) {
+            elements.incognitoBtn.addEventListener('click', handleIncognitoClick);
         }
 
         // Handle messages from iframe (if the site supports it)
@@ -113,25 +113,25 @@
     function setupNavigationDetection() {
         // Monitor for navigation changes
         // Note: Due to cross-origin restrictions, we can't directly access iframe.contentWindow.location
-        // We'll rely on iframe load events and attempt to track URL changes
+        // We'll track navigation through our own controls
 
         if (elements.iframe) {
-            // Create a MutationObserver to watch for src attribute changes
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-                        const newSrc = elements.iframe.src;
-                        if (newSrc && newSrc !== currentUrl) {
-                            handleNavigationChange(newSrc);
-                        }
+            // Listen for iframe load events to detect navigation
+            let lastSrc = elements.iframe.src;
+            
+            // Check periodically if the iframe has navigated (workaround for cross-origin)
+            setInterval(() => {
+                try {
+                    // This will fail for cross-origin, but we can still try
+                    const currentSrc = elements.iframe.src;
+                    if (currentSrc !== lastSrc) {
+                        lastSrc = currentSrc;
+                        handleNavigationChange(currentSrc);
                     }
-                });
-            });
-
-            observer.observe(elements.iframe, {
-                attributes: true,
-                attributeFilter: ['src']
-            });
+                } catch (e) {
+                    // Expected for cross-origin
+                }
+            }, 1000);
         }
     }
 
@@ -240,11 +240,15 @@
      */
     function handleBack(event) {
         event.preventDefault();
+        console.log('Back button clicked. History:', navigationHistory, 'Index:', historyIndex);
         
         if (historyIndex > 0) {
             historyIndex--;
             const targetUrl = navigationHistory[historyIndex];
+            console.log('Navigating back to:', targetUrl);
             loadCantina(targetUrl);
+        } else {
+            console.log('Cannot go back - at beginning of history');
         }
     }
 
@@ -323,31 +327,25 @@
     }
 
     /**
-     * Handle incognito toggle
+     * Handle incognito button click
      */
-    function handleIncognitoToggle(event) {
-        const isIncognito = event.target.checked;
+    function handleIncognitoClick(event) {
+        event.preventDefault();
         
-        if (isIncognito) {
-            // Open current URL in incognito window
-            chrome.runtime.sendMessage({
-                action: 'openIncognito',
-                url: currentUrl
-            }, (response) => {
-                if (response && response.success) {
-                    console.log('Opened in incognito window');
-                    // Optional: Show a notification or feedback
-                    showIncognitoNotification();
-                } else {
-                    console.error('Failed to open in incognito');
-                    // Reset the toggle if failed
-                    elements.incognitoSwitch.checked = false;
-                }
-            });
-        } else {
-            // If toggled off, just log it (the panel stays in normal mode)
-            console.log('Incognito mode disabled');
-        }
+        // Open current URL in incognito window
+        chrome.runtime.sendMessage({
+            action: 'openIncognito',
+            url: currentUrl
+        }, (response) => {
+            if (response && response.success) {
+                console.log('Opened in incognito window');
+                // Show a notification or feedback
+                showIncognitoNotification();
+            } else {
+                console.error('Failed to open in incognito:', response?.error);
+                alert('Failed to open in incognito mode. Please make sure incognito mode is enabled in Chrome.');
+            }
+        });
     }
 
     /**
