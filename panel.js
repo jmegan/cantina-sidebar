@@ -21,7 +21,8 @@
         forwardBtn: null,
         homeBtn: null,
         currentUrlDisplay: null,
-        copyUrlBtn: null
+        copyUrlBtn: null,
+        incognitoSwitch: null
     };
 
     // State
@@ -47,6 +48,7 @@
         elements.homeBtn = document.getElementById('home-btn');
         elements.currentUrlDisplay = document.getElementById('current-url');
         elements.copyUrlBtn = document.getElementById('copy-url-btn');
+        elements.incognitoSwitch = document.getElementById('incognito-switch');
 
         // Set up event listeners
         setupEventListeners();
@@ -91,6 +93,11 @@
 
         if (elements.copyUrlBtn) {
             elements.copyUrlBtn.addEventListener('click', handleCopyUrl);
+        }
+
+        // Incognito toggle
+        if (elements.incognitoSwitch) {
+            elements.incognitoSwitch.addEventListener('change', handleIncognitoToggle);
         }
 
         // Handle messages from iframe (if the site supports it)
@@ -313,6 +320,65 @@
         }).catch(err => {
             console.error('Failed to copy URL:', err);
         });
+    }
+
+    /**
+     * Handle incognito toggle
+     */
+    function handleIncognitoToggle(event) {
+        const isIncognito = event.target.checked;
+        
+        if (isIncognito) {
+            // Open current URL in incognito window
+            chrome.runtime.sendMessage({
+                action: 'openIncognito',
+                url: currentUrl
+            }, (response) => {
+                if (response && response.success) {
+                    console.log('Opened in incognito window');
+                    // Optional: Show a notification or feedback
+                    showIncognitoNotification();
+                } else {
+                    console.error('Failed to open in incognito');
+                    // Reset the toggle if failed
+                    elements.incognitoSwitch.checked = false;
+                }
+            });
+        } else {
+            // If toggled off, just log it (the panel stays in normal mode)
+            console.log('Incognito mode disabled');
+        }
+    }
+
+    /**
+     * Show incognito notification
+     */
+    function showIncognitoNotification() {
+        // Create a temporary notification element
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            z-index: 10000;
+            animation: slideIn 0.3s ease-out;
+            font-size: 14px;
+        `;
+        notification.textContent = 'Opened in incognito window';
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
     }
 
     /**
