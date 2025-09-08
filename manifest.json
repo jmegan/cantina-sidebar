@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Cantina Chatbot Explorer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Browse Cantina's chatbot directory in Chrome's side panel for quick access while browsing",
   
-  "permissions": ["sidePanel"],
+  "permissions": [
+    "sidePanel",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
+  ],
   
   "background": {
     "service_worker": "background.js"
@@ -31,7 +35,18 @@
     "128": "icons/icon-128.png"
   },
   
-  "host_permissions": [],
+  "host_permissions": [
+    "https://cantina.com/*",
+    "https://*.cantina.com/*"
+  ],
+  
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ruleset_1",
+      "enabled": true,
+      "path": "rules.json"
+    }]
+  },
   
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; frame-src https://cantina.com https://*.cantina.com"
