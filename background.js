@@ -1,6 +1,31 @@
 // Service worker for Cantina Chatbot Explorer
 // Handles side panel behavior and header modification for iframe embedding
 
+// Configuration
+const ALLOWED_DOMAINS = ['cantina.com', 'www.cantina.com'];
+const ALLOWED_PATHS = ['/explore', '/homefeed', '/'];
+
+// Helper function to validate Cantina URLs
+function isValidCantinaUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+        const isValidDomain = ALLOWED_DOMAINS.some(domain => 
+            hostname === domain || hostname.endsWith('.' + domain)
+        );
+        
+        // Optional: Check if path is allowed
+        // const isValidPath = ALLOWED_PATHS.some(path => 
+        //     urlObj.pathname === path || urlObj.pathname.startsWith(path)
+        // );
+        
+        return isValidDomain;
+    } catch (e) {
+        console.error('Invalid URL:', e);
+        return false;
+    }
+}
+
 // When the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
   // Configure the side panel to open when the extension icon is clicked
@@ -29,7 +54,7 @@ async function setupDynamicRules() {
       console.log('Cleared existing dynamic rules:', existingRuleIds);
     }
 
-    // Add new dynamic rules for Cantina domain
+    // Add new dynamic rules for Cantina domain with more restrictive conditions
     const rules = [
       {
         id: 1001,
@@ -38,14 +63,45 @@ async function setupDynamicRules() {
           type: "modifyHeaders",
           responseHeaders: [
             { header: "x-frame-options", operation: "remove" },
-            { header: "content-security-policy", operation: "remove" },
-            { header: "X-Frame-Options", operation: "remove" },
-            { header: "Content-Security-Policy", operation: "remove" }
+            { header: "X-Frame-Options", operation: "remove" }
+            // Note: Removing CSP is a security risk, only do if absolutely necessary
+            // Consider using a more specific CSP instead
           ]
         },
         condition: {
-          urlFilter: "*cantina.com*",
-          resourceTypes: ["sub_frame", "main_frame", "xmlhttprequest", "other"]
+          // More specific URL patterns for better security
+          urlFilter: "||cantina.com/explore*",
+          resourceTypes: ["sub_frame"]
+        }
+      },
+      {
+        id: 1002,
+        priority: 1,
+        action: {
+          type: "modifyHeaders",
+          responseHeaders: [
+            { header: "x-frame-options", operation: "remove" },
+            { header: "X-Frame-Options", operation: "remove" }
+          ]
+        },
+        condition: {
+          urlFilter: "||cantina.com/homefeed*",
+          resourceTypes: ["sub_frame"]
+        }
+      },
+      {
+        id: 1003,
+        priority: 1,
+        action: {
+          type: "modifyHeaders",
+          responseHeaders: [
+            { header: "x-frame-options", operation: "remove" },
+            { header: "X-Frame-Options", operation: "remove" }
+          ]
+        },
+        condition: {
+          urlFilter: "||cantina.com/",
+          resourceTypes: ["sub_frame"]
         }
       }
     ];
@@ -62,6 +118,13 @@ async function setupDynamicRules() {
 
 // Handle runtime messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Validate sender (should be from our extension)
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('Message from unknown sender:', sender);
+    sendResponse({ success: false, error: 'Unknown sender' });
+    return false;
+  }
+  
   if (request.action === 'checkStatus') {
     sendResponse({ status: 'active' });
     return true;
@@ -69,23 +132,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   // Handle navigation requests from the panel
   if (request.action === 'navigate' && request.url) {
+    // Validate URL before processing
+    if (!isValidCantinaUrl(request.url)) {
+      console.error('Invalid navigation URL:', request.url);
+      sendResponse({ success: false, error: 'Invalid URL' });
+      return false;
+    }
     console.log('Navigation requested to:', request.url);
+    sendResponse({ success: true });
     return true;
   }
   
   // Handle incognito window creation
   if (request.action === 'openIncognito' && request.url) {
-    chrome.windows.create({
-      url: request.url,
-      incognito: true
-    }, (window) => {
-      if (chrome.runtime.lastError) {
-        console.error('Failed to create incognito window:', chrome.runtime.lastError);
-        sendResponse({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        console.log('Incognito window created for:', request.url);
-        sendResponse({ success: true, windowId: window.id });
+    // Validate URL before opening
+    if (!isValidCantinaUrl(request.url)) {
+      console.error('Invalid incognito URL:', request.url);
+      sendResponse({ success: false, error: 'Invalid URL' });
+      return false;
+    }
+    
+    // Check if incognito is allowed
+    chrome.extension.isAllowedIncognitoAccess((isAllowed) => {
+      if (!isAllowed) {
+        sendResponse({ success: false, error: 'Incognito access not allowed' });
+        return;
       }
+      
+      chrome.windows.create({
+        url: request.url,
+        incognito: true
+      }, (window) => {
+        if (chrome.runtime.lastError) {
+          console.error('Failed to create incognito window:', chrome.runtime.lastError);
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        } else {
+          console.log('Incognito window created for:', request.url);
+          sendResponse({ success: true, windowId: window.id });
+        }
+      });
     });
     return true; // Keep message channel open for async response
   }

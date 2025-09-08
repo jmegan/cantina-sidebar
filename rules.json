@@ -10,14 +10,14 @@
           "operation": "remove"
         },
         {
-          "header": "content-security-policy",
+          "header": "X-Frame-Options",
           "operation": "remove"
         }
       ]
     },
     "condition": {
-      "urlFilter": "*://cantina.com/*",
-      "resourceTypes": ["sub_frame", "main_frame"]
+      "urlFilter": "||cantina.com/explore*",
+      "resourceTypes": ["sub_frame"]
     }
   },
   {
@@ -31,14 +31,35 @@
           "operation": "remove"
         },
         {
-          "header": "content-security-policy", 
+          "header": "X-Frame-Options",
           "operation": "remove"
         }
       ]
     },
     "condition": {
-      "urlFilter": "*://*.cantina.com/*",
-      "resourceTypes": ["sub_frame", "main_frame"]
+      "urlFilter": "||cantina.com/homefeed*",
+      "resourceTypes": ["sub_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        {
+          "header": "x-frame-options",
+          "operation": "remove"
+        },
+        {
+          "header": "X-Frame-Options",
+          "operation": "remove"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||cantina.com/",
+      "resourceTypes": ["sub_frame"]
     }
   }
 ]

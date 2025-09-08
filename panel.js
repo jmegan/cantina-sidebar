@@ -10,6 +10,10 @@
     const CANTINA_FEED_URL = `${CANTINA_BASE_URL}/homefeed`;
     const CANTINA_HOME_URL = CANTINA_BASE_URL;
     const LOAD_TIMEOUT = 15000; // 15 seconds timeout
+    const POLL_INTERVAL = 1000; // 1 second polling interval
+    const ALLOWED_DOMAINS = ['cantina.com', 'www.cantina.com'];
+    const MAX_RETRY_ATTEMPTS = 3;
+    const RETRY_DELAY_BASE = 1000; // Base delay for exponential backoff
 
     // DOM Elements
     const elements = {
@@ -33,6 +37,51 @@
     let currentUrl = CANTINA_EXPLORE_URL;
     let navigationHistory = [CANTINA_EXPLORE_URL];
     let historyIndex = 0;
+    let pollIntervalId = null;
+    let retryAttempts = 0;
+    let pendingNavigation = false;
+
+    /**
+     * URL validation helper
+     */
+    function isValidCantinaUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            return ALLOWED_DOMAINS.some(domain => 
+                hostname === domain || hostname.endsWith('.' + domain)
+            );
+        } catch (e) {
+            console.error('Invalid URL:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Sanitize URL for display
+     */
+    function sanitizeUrlForDisplay(url) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname + urlObj.pathname + urlObj.search;
+        } catch (e) {
+            return 'cantina.com';
+        }
+    }
+
+    /**
+     * HTML escape helper
+     */
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
 
     /**
      * Initialize the panel
@@ -118,19 +167,26 @@
             // Listen for iframe load events to detect navigation
             let lastSrc = elements.iframe.src;
             
+            // Clear any existing interval
+            if (pollIntervalId) {
+                clearInterval(pollIntervalId);
+            }
+            
             // Check periodically if the iframe has navigated (workaround for cross-origin)
-            setInterval(() => {
+            pollIntervalId = setInterval(() => {
                 try {
                     // This will fail for cross-origin, but we can still try
                     const currentSrc = elements.iframe.src;
                     if (currentSrc !== lastSrc) {
                         lastSrc = currentSrc;
-                        handleNavigationChange(currentSrc);
+                        if (isValidCantinaUrl(currentSrc)) {
+                            handleNavigationChange(currentSrc);
+                        }
                     }
                 } catch (e) {
                     // Expected for cross-origin
                 }
-            }, 1000);
+            }, POLL_INTERVAL);
         }
     }
 
@@ -138,6 +194,20 @@
      * Load a URL in the iframe
      */
     function loadCantina(url) {
+        // Validate URL before loading
+        if (!isValidCantinaUrl(url)) {
+            console.error('Invalid Cantina URL:', url);
+            showError('Invalid URL. Only Cantina URLs are allowed.');
+            return;
+        }
+
+        // Prevent concurrent navigations
+        if (pendingNavigation) {
+            console.log('Navigation already in progress');
+            return;
+        }
+
+        pendingNavigation = true;
         showLoading();
         isLoaded = false;
 
@@ -167,11 +237,13 @@
     function handleIframeLoad() {
         clearTimeout(loadTimer);
         isLoaded = true;
+        pendingNavigation = false;
+        retryAttempts = 0; // Reset retry counter on successful load
 
         // Try to get the actual URL (may fail due to cross-origin)
         try {
             const iframeUrl = elements.iframe.contentWindow.location.href;
-            if (iframeUrl && iframeUrl !== currentUrl) {
+            if (iframeUrl && iframeUrl !== currentUrl && isValidCantinaUrl(iframeUrl)) {
                 handleNavigationChange(iframeUrl);
             }
         } catch (e) {
@@ -210,8 +282,8 @@
      */
     function updateUrlDisplay(url) {
         if (elements.currentUrlDisplay) {
-            // Remove protocol and show just the path
-            const displayUrl = url.replace('https://', '').replace('http://', '');
+            // Sanitize and display URL safely
+            const displayUrl = sanitizeUrlForDisplay(url);
             elements.currentUrlDisplay.textContent = displayUrl;
         }
     }
@@ -274,6 +346,12 @@
     function handleCopyUrl(event) {
         event.preventDefault();
         
+        // Only copy valid Cantina URLs
+        if (!isValidCantinaUrl(currentUrl)) {
+            console.error('Cannot copy invalid URL');
+            return;
+        }
+        
         navigator.clipboard.writeText(currentUrl).then(() => {
             // Show success feedback
             elements.copyUrlBtn.classList.add('copied');
@@ -284,6 +362,8 @@
             }, 2000);
         }).catch(err => {
             console.error('Failed to copy URL:', err);
+            // Show user-friendly error
+            alert('Failed to copy URL to clipboard. Please try again.');
         });
     }
 
@@ -293,19 +373,39 @@
     function handleIncognitoClick(event) {
         event.preventDefault();
         
-        // Open current URL in incognito window
-        chrome.runtime.sendMessage({
-            action: 'openIncognito',
-            url: currentUrl
-        }, (response) => {
-            if (response && response.success) {
-                console.log('Opened in incognito window');
-                // Show a notification or feedback
-                showIncognitoNotification();
-            } else {
-                console.error('Failed to open in incognito:', response?.error);
-                alert('Failed to open in incognito mode. Please make sure incognito mode is enabled in Chrome.');
+        // Validate URL before opening in incognito
+        if (!isValidCantinaUrl(currentUrl)) {
+            console.error('Cannot open invalid URL in incognito');
+            return;
+        }
+        
+        // Check if extension is allowed in incognito
+        chrome.extension.isAllowedIncognitoAccess((isAllowed) => {
+            if (!isAllowed) {
+                alert('This extension is not allowed in incognito mode. Please enable it in Chrome extensions settings.');
+                return;
             }
+            
+            // Open current URL in incognito window
+            chrome.runtime.sendMessage({
+                action: 'openIncognito',
+                url: currentUrl
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Runtime error:', chrome.runtime.lastError);
+                    alert('Failed to open in incognito mode. Please try again.');
+                    return;
+                }
+                
+                if (response && response.success) {
+                    console.log('Opened in incognito window');
+                    // Show a notification or feedback
+                    showIncognitoNotification();
+                } else {
+                    console.error('Failed to open in incognito:', response?.error);
+                    alert('Failed to open in incognito mode. Please make sure incognito mode is enabled in Chrome.');
+                }
+            });
         });
     }
 
@@ -354,12 +454,23 @@
      */
     function handleLoadTimeout() {
         console.warn('Loading Cantina timed out');
+        pendingNavigation = false;
         
         // Check if we're online
         if (!navigator.onLine) {
             showError('No internet connection. Please check your network and try again.');
+        } else if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+            // Implement exponential backoff retry
+            retryAttempts++;
+            const retryDelay = RETRY_DELAY_BASE * Math.pow(2, retryAttempts - 1);
+            console.log(`Retrying in ${retryDelay}ms (attempt ${retryAttempts}/${MAX_RETRY_ATTEMPTS})`);
+            
+            setTimeout(() => {
+                loadCantina(currentUrl);
+            }, retryDelay);
         } else {
             showError('Loading took too long. The site may be slow or unavailable.');
+            retryAttempts = 0; // Reset for next attempt
         }
     }
 
@@ -367,14 +478,26 @@
      * Handle messages from iframe (for future enhancements)
      */
     function handleMessage(event) {
-        // Only accept messages from Cantina domain
-        if (!event.origin.startsWith(CANTINA_BASE_URL)) {
+        // Validate origin
+        try {
+            const origin = new URL(event.origin);
+            if (!ALLOWED_DOMAINS.includes(origin.hostname)) {
+                console.warn('Rejected message from untrusted origin:', event.origin);
+                return;
+            }
+        } catch (e) {
+            console.error('Invalid origin:', event.origin);
+            return;
+        }
+
+        // Validate message data
+        if (!event.data || typeof event.data !== 'object') {
             return;
         }
 
         // Handle navigation messages if the site implements them
-        if (event.data && event.data.type === 'navigation') {
-            if (event.data.url) {
+        if (event.data.type === 'navigation' && event.data.url) {
+            if (isValidCantinaUrl(event.data.url)) {
                 handleNavigationChange(event.data.url);
             }
         }
@@ -425,8 +548,37 @@
         }
     }
 
+    /**
+     * Clean up resources
+     */
+    function cleanup() {
+        // Clear timers
+        if (loadTimer) {
+            clearTimeout(loadTimer);
+            loadTimer = null;
+        }
+        
+        if (pollIntervalId) {
+            clearInterval(pollIntervalId);
+            pollIntervalId = null;
+        }
+        
+        // Remove event listeners
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('message', handleMessage);
+        
+        // Clean up iframe listeners
+        if (elements.iframe) {
+            elements.iframe.removeEventListener('load', handleIframeLoad);
+            elements.iframe.removeEventListener('error', handleIframeError);
+        }
+    }
+
     // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Clean up on unload
+    window.addEventListener('unload', cleanup);
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
