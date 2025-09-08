@@ -1,11 +1,12 @@
 // Panel JavaScript for Cantina Chatbot Explorer
-// Handles iframe loading, error states, and user interactions
+// Handles iframe loading, navigation, and URL tracking
 
 (function() {
     'use strict';
 
     // Configuration
-    const CANTINA_URL = 'https://cantina.com/explore';
+    const CANTINA_BASE_URL = 'https://cantina.com';
+    const CANTINA_EXPLORE_URL = `${CANTINA_BASE_URL}/explore`;
     const LOAD_TIMEOUT = 15000; // 15 seconds timeout
 
     // DOM Elements
@@ -15,12 +16,20 @@
         errorContainer: null,
         iframe: null,
         refreshBtn: null,
-        retryBtn: null
+        retryBtn: null,
+        backBtn: null,
+        forwardBtn: null,
+        homeBtn: null,
+        currentUrlDisplay: null,
+        copyUrlBtn: null
     };
 
     // State
     let loadTimer = null;
     let isLoaded = false;
+    let currentUrl = CANTINA_EXPLORE_URL;
+    let navigationHistory = [CANTINA_EXPLORE_URL];
+    let historyIndex = 0;
 
     /**
      * Initialize the panel
@@ -33,12 +42,20 @@
         elements.iframe = document.getElementById('cantina-frame');
         elements.refreshBtn = document.getElementById('refresh-btn');
         elements.retryBtn = document.getElementById('retry-btn');
+        elements.backBtn = document.getElementById('back-btn');
+        elements.forwardBtn = document.getElementById('forward-btn');
+        elements.homeBtn = document.getElementById('home-btn');
+        elements.currentUrlDisplay = document.getElementById('current-url');
+        elements.copyUrlBtn = document.getElementById('copy-url-btn');
 
         // Set up event listeners
         setupEventListeners();
 
         // Start loading
-        loadCantina();
+        loadCantina(CANTINA_EXPLORE_URL);
+
+        // Update navigation button states
+        updateNavigationButtons();
     }
 
     /**
@@ -51,7 +68,19 @@
             elements.iframe.addEventListener('error', handleIframeError);
         }
 
-        // Button clicks
+        // Navigation buttons
+        if (elements.backBtn) {
+            elements.backBtn.addEventListener('click', handleBack);
+        }
+
+        if (elements.forwardBtn) {
+            elements.forwardBtn.addEventListener('click', handleForward);
+        }
+
+        if (elements.homeBtn) {
+            elements.homeBtn.addEventListener('click', handleHome);
+        }
+
         if (elements.refreshBtn) {
             elements.refreshBtn.addEventListener('click', handleRefresh);
         }
@@ -60,16 +89,56 @@
             elements.retryBtn.addEventListener('click', handleRetry);
         }
 
-        // Handle messages from iframe (if needed in future)
+        if (elements.copyUrlBtn) {
+            elements.copyUrlBtn.addEventListener('click', handleCopyUrl);
+        }
+
+        // Handle messages from iframe (if the site supports it)
         window.addEventListener('message', handleMessage);
+
+        // Try to detect navigation within iframe (limited by cross-origin policy)
+        setupNavigationDetection();
     }
 
     /**
-     * Load Cantina in the iframe
+     * Set up navigation detection for the iframe
      */
-    function loadCantina() {
+    function setupNavigationDetection() {
+        // Monitor for navigation changes
+        // Note: Due to cross-origin restrictions, we can't directly access iframe.contentWindow.location
+        // We'll rely on iframe load events and attempt to track URL changes
+
+        if (elements.iframe) {
+            // Create a MutationObserver to watch for src attribute changes
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+                        const newSrc = elements.iframe.src;
+                        if (newSrc && newSrc !== currentUrl) {
+                            handleNavigationChange(newSrc);
+                        }
+                    }
+                });
+            });
+
+            observer.observe(elements.iframe, {
+                attributes: true,
+                attributeFilter: ['src']
+            });
+        }
+    }
+
+    /**
+     * Load a URL in the iframe
+     */
+    function loadCantina(url) {
         showLoading();
         isLoaded = false;
+
+        // Clear previous timeout
+        if (loadTimer) {
+            clearTimeout(loadTimer);
+        }
 
         // Set a timeout for loading
         loadTimer = setTimeout(() => {
@@ -78,9 +147,11 @@
             }
         }, LOAD_TIMEOUT);
 
-        // Set/reset the iframe source
+        // Load the URL
         if (elements.iframe) {
-            elements.iframe.src = CANTINA_URL;
+            elements.iframe.src = url;
+            currentUrl = url;
+            updateUrlDisplay(url);
         }
     }
 
@@ -91,17 +162,157 @@
         clearTimeout(loadTimer);
         isLoaded = true;
 
-        // Check if the iframe actually loaded content
+        // Try to get the actual URL (may fail due to cross-origin)
         try {
-            // Try to access iframe content (will fail for cross-origin)
-            // This is expected to fail, but we can still show the content
-            const iframeDoc = elements.iframe.contentDocument || elements.iframe.contentWindow.document;
+            const iframeUrl = elements.iframe.contentWindow.location.href;
+            if (iframeUrl && iframeUrl !== currentUrl) {
+                handleNavigationChange(iframeUrl);
+            }
         } catch (e) {
-            // Cross-origin access denied is expected
-            console.log('Cantina loaded successfully (cross-origin)');
+            // Cross-origin access denied - this is expected
+            console.log('Iframe loaded (cross-origin restrictions apply)');
         }
 
         showMain();
+        updateNavigationButtons();
+    }
+
+    /**
+     * Handle navigation change within iframe
+     */
+    function handleNavigationChange(newUrl) {
+        // Only track Cantina URLs
+        if (newUrl.startsWith(CANTINA_BASE_URL)) {
+            currentUrl = newUrl;
+            updateUrlDisplay(newUrl);
+
+            // Update history
+            if (historyIndex < navigationHistory.length - 1) {
+                // Remove forward history if navigating from middle of history
+                navigationHistory = navigationHistory.slice(0, historyIndex + 1);
+            }
+
+            // Add to history if it's different from the last entry
+            if (navigationHistory[navigationHistory.length - 1] !== newUrl) {
+                navigationHistory.push(newUrl);
+                historyIndex = navigationHistory.length - 1;
+            }
+
+            updateNavigationButtons();
+        }
+    }
+
+    /**
+     * Update URL display
+     */
+    function updateUrlDisplay(url) {
+        if (elements.currentUrlDisplay) {
+            // Remove protocol and show just the path
+            const displayUrl = url.replace('https://', '').replace('http://', '');
+            elements.currentUrlDisplay.textContent = displayUrl;
+        }
+    }
+
+    /**
+     * Update navigation button states
+     */
+    function updateNavigationButtons() {
+        // Back button
+        if (elements.backBtn) {
+            elements.backBtn.disabled = historyIndex <= 0;
+        }
+
+        // Forward button
+        if (elements.forwardBtn) {
+            elements.forwardBtn.disabled = historyIndex >= navigationHistory.length - 1;
+        }
+    }
+
+    /**
+     * Handle back navigation
+     */
+    function handleBack(event) {
+        event.preventDefault();
+        
+        if (historyIndex > 0) {
+            historyIndex--;
+            const targetUrl = navigationHistory[historyIndex];
+            loadCantina(targetUrl);
+        }
+    }
+
+    /**
+     * Handle forward navigation
+     */
+    function handleForward(event) {
+        event.preventDefault();
+        
+        if (historyIndex < navigationHistory.length - 1) {
+            historyIndex++;
+            const targetUrl = navigationHistory[historyIndex];
+            loadCantina(targetUrl);
+        }
+    }
+
+    /**
+     * Handle home navigation
+     */
+    function handleHome(event) {
+        event.preventDefault();
+        
+        if (currentUrl !== CANTINA_EXPLORE_URL) {
+            loadCantina(CANTINA_EXPLORE_URL);
+            
+            // Update history
+            if (historyIndex < navigationHistory.length - 1) {
+                navigationHistory = navigationHistory.slice(0, historyIndex + 1);
+            }
+            navigationHistory.push(CANTINA_EXPLORE_URL);
+            historyIndex = navigationHistory.length - 1;
+        }
+    }
+
+    /**
+     * Handle refresh button click
+     */
+    function handleRefresh(event) {
+        event.preventDefault();
+        
+        // Add rotation animation
+        elements.refreshBtn.style.animation = 'spin 0.5s ease-in-out';
+        setTimeout(() => {
+            elements.refreshBtn.style.animation = '';
+        }, 500);
+
+        // Reload current URL
+        loadCantina(currentUrl);
+    }
+
+    /**
+     * Handle retry button click
+     */
+    function handleRetry(event) {
+        event.preventDefault();
+        loadCantina(currentUrl);
+    }
+
+    /**
+     * Handle copy URL button click
+     */
+    function handleCopyUrl(event) {
+        event.preventDefault();
+        
+        navigator.clipboard.writeText(currentUrl).then(() => {
+            // Show success feedback
+            elements.copyUrlBtn.classList.add('copied');
+            
+            // Remove the class after animation
+            setTimeout(() => {
+                elements.copyUrlBtn.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy URL:', err);
+        });
     }
 
     /**
@@ -128,39 +339,20 @@
     }
 
     /**
-     * Handle refresh button click
-     */
-    function handleRefresh(event) {
-        event.preventDefault();
-        
-        // Add rotation animation
-        elements.refreshBtn.style.animation = 'spin 0.5s ease-in-out';
-        setTimeout(() => {
-            elements.refreshBtn.style.animation = '';
-        }, 500);
-
-        loadCantina();
-    }
-
-    /**
-     * Handle retry button click
-     */
-    function handleRetry(event) {
-        event.preventDefault();
-        loadCantina();
-    }
-
-    /**
      * Handle messages from iframe (for future enhancements)
      */
     function handleMessage(event) {
-        // Verify origin if implementing message passing
-        if (event.origin !== 'https://cantina.com') {
+        // Only accept messages from Cantina domain
+        if (!event.origin.startsWith(CANTINA_BASE_URL)) {
             return;
         }
 
-        // Handle specific messages if needed
-        console.log('Message from Cantina:', event.data);
+        // Handle navigation messages if the site implements them
+        if (event.data && event.data.type === 'navigation') {
+            if (event.data.url) {
+                handleNavigationChange(event.data.url);
+            }
+        }
     }
 
     /**
@@ -199,26 +391,12 @@
     }
 
     /**
-     * Check for CSP or X-Frame-Options issues
-     */
-    function checkEmbeddingSupport() {
-        // This is a heuristic check - actual embedding will be tested when iframe loads
-        fetch(CANTINA_URL, { method: 'HEAD', mode: 'no-cors' })
-            .then(() => {
-                console.log('Cantina site is reachable');
-            })
-            .catch(error => {
-                console.warn('Could not reach Cantina site:', error);
-            });
-    }
-
-    /**
      * Handle visibility change (when panel is shown/hidden)
      */
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible' && !isLoaded) {
             // Reload if the panel becomes visible and content isn't loaded
-            loadCantina();
+            loadCantina(currentUrl);
         }
     }
 
@@ -231,8 +409,5 @@
     } else {
         init();
     }
-
-    // Perform initial embedding support check
-    checkEmbeddingSupport();
 
 })();
