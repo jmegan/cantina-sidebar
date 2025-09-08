@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cantina Chatbot Explorer</title>
+    <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+    <!-- Loading State -->
+    <div id="loading-container" class="loading-container">
+        <div class="loader">
+            <div class="spinner"></div>
+            <p class="loading-text">Loading Cantina Explorer...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-container" class="main-container hidden">
+        <!-- Header with branding -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="header-title">
+                    <span class="logo">🤖</span>
+                    Cantina Explorer
+                </h1>
+                <button id="refresh-btn" class="refresh-btn" title="Refresh">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Iframe Container -->
+        <div id="iframe-container" class="iframe-container">
+            <iframe 
+                id="cantina-frame"
+                src="https://cantina.com/explore" 
+                allow="clipboard-write; clipboard-read"
+                title="Cantina Chatbot Directory">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Error/Fallback State -->
+    <div id="error-container" class="error-container hidden">
+        <div class="error-content">
+            <div class="error-icon">⚠️</div>
+            <h2 class="error-title">Unable to Load Cantina</h2>
+            <p class="error-message">
+                The Cantina Explorer couldn't be loaded in the side panel. 
+                This might be due to network issues or embedding restrictions.
+            </p>
+            <div class="error-actions">
+                <button id="retry-btn" class="btn btn-primary">
+                    Try Again
+                </button>
+                <a href="https://cantina.com/explore" target="_blank" class="btn btn-secondary">
+                    Open in New Tab
+                </a>
+            </div>
+            <div class="error-tip">
+                <p class="tip-text">
+                    <strong>Tip:</strong> You can still browse Cantina in a new tab and copy content back to your current page.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="panel.js"></script>
+</body>
+</html>
