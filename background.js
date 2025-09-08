@@ -16,44 +16,47 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Set up dynamic header modification rules
 async function setupDynamicRules() {
-  // Clear existing dynamic rules
-  chrome.declarativeNetRequest.getDynamicRules((rules) => {
-    const ruleIds = rules.map(rule => rule.id);
-    if (ruleIds.length > 0) {
-      chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: ruleIds
-      });
-    }
-  });
-
-  // Add new dynamic rules for Cantina domain
-  const rules = [
-    {
-      id: 1001,
-      priority: 1,
-      action: {
-        type: "modifyHeaders",
-        responseHeaders: [
-          { header: "x-frame-options", operation: "remove" },
-          { header: "content-security-policy", operation: "remove" },
-          { header: "X-Frame-Options", operation: "remove" },
-          { header: "Content-Security-Policy", operation: "remove" }
-        ]
-      },
-      condition: {
-        urlFilter: "*cantina.com*",
-        resourceTypes: ["sub_frame", "main_frame", "xmlhttprequest", "other"]
-      }
-    }
-  ];
-
   try {
+    // First, get existing dynamic rules
+    const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+    const existingRuleIds = existingRules.map(rule => rule.id);
+    
+    // Clear existing dynamic rules if any
+    if (existingRuleIds.length > 0) {
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: existingRuleIds
+      });
+      console.log('Cleared existing dynamic rules:', existingRuleIds);
+    }
+
+    // Add new dynamic rules for Cantina domain
+    const rules = [
+      {
+        id: 1001,
+        priority: 1,
+        action: {
+          type: "modifyHeaders",
+          responseHeaders: [
+            { header: "x-frame-options", operation: "remove" },
+            { header: "content-security-policy", operation: "remove" },
+            { header: "X-Frame-Options", operation: "remove" },
+            { header: "Content-Security-Policy", operation: "remove" }
+          ]
+        },
+        condition: {
+          urlFilter: "*cantina.com*",
+          resourceTypes: ["sub_frame", "main_frame", "xmlhttprequest", "other"]
+        }
+      }
+    ];
+
     await chrome.declarativeNetRequest.updateDynamicRules({
       addRules: rules
     });
+    
     console.log('Dynamic rules for header modification added successfully');
   } catch (error) {
-    console.error('Failed to add dynamic rules:', error);
+    console.error('Failed to set up dynamic rules:', error);
   }
 }
 
