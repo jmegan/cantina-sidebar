@@ -70,18 +70,32 @@
                 </nav>
             </div>
             
-            <!-- URL Display Bar with Incognito Toggle -->
+            <!-- URL Display Bar with Editable Path -->
             <div class="url-bar" role="region" aria-label="URL display and controls">
-                <div class="url-display" role="group" aria-label="Current URL">
-                    <span class="url-protocol" aria-hidden="true">https://</span>
-                    <span id="current-url" class="url-text" aria-live="polite" aria-label="Current page URL">cantina.com/explore</span>
-                    <button id="copy-url-btn" class="copy-url-btn" title="Copy URL" aria-label="Copy current URL to clipboard">
+                <form id="url-form" class="url-display" role="group" aria-label="Current URL">
+                    <span class="url-protocol" aria-hidden="true">cantina.com/</span>
+                    <input 
+                        type="text" 
+                        id="url-path-input" 
+                        class="url-path-input" 
+                        value="explore" 
+                        aria-label="URL path"
+                        placeholder="Enter path..."
+                        autocomplete="off"
+                        spellcheck="false">
+                    <button type="submit" id="navigate-btn" class="navigate-btn" title="Go to URL" aria-label="Navigate to entered URL">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                            <polyline points="12 5 19 12 12 19"/>
+                        </svg>
+                    </button>
+                    <button type="button" id="copy-url-btn" class="copy-url-btn" title="Copy URL" aria-label="Copy current URL to clipboard">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                         </svg>
                     </button>
-                </div>
+                </form>
             </div>
         </header>
 

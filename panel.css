@@ -238,14 +238,51 @@ html, body {
 .url-protocol {
     color: var(--text-muted);
     margin-right: 2px;
+    flex-shrink: 0;
 }
 
-.url-text {
+.url-path-input {
     color: var(--text-primary);
     flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+.url-path-input::placeholder {
+    color: var(--text-muted);
+}
+
+.url-path-input:focus {
+    color: var(--primary-color);
+}
+
+.navigate-btn {
+    margin-left: 8px;
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.navigate-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--primary-color);
+}
+
+.navigate-btn:active {
+    transform: scale(0.95);
 }
 
 .copy-url-btn {

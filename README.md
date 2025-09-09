@@ -2,7 +2,7 @@
 
 A powerful Chrome extension that brings Cantina's AI chatbot directory directly to your browser's side panel, enabling seamless browsing and exploration of AI assistants while you work.
 
-![Version](https://img.shields.io/badge/version-0.6.0-blue)
+![Version](https://img.shields.io/badge/version-0.7.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome](https://img.shields.io/badge/Chrome-114%2B-orange)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-purple)

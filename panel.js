@@ -116,7 +116,9 @@
         elements.exploreBtn = document.getElementById('explore-btn');
         elements.feedBtn = document.getElementById('feed-btn');
         elements.homeBtn = document.getElementById('home-btn');
-        elements.currentUrlDisplay = document.getElementById('current-url');
+        elements.urlPathInput = document.getElementById('url-path-input');
+        elements.urlForm = document.getElementById('url-form');
+        elements.navigateBtn = document.getElementById('navigate-btn');
         elements.copyUrlBtn = document.getElementById('copy-url-btn');
         elements.zoomInBtn = document.getElementById('zoom-in-btn');
         elements.zoomOutBtn = document.getElementById('zoom-out-btn');
@@ -166,6 +168,16 @@
 
         if (elements.copyUrlBtn) {
             elements.copyUrlBtn.addEventListener('click', handleCopyUrl);
+        }
+        
+        // URL form submission
+        if (elements.urlForm) {
+            elements.urlForm.addEventListener('submit', handleUrlFormSubmit);
+        }
+        
+        // URL input enter key
+        if (elements.urlPathInput) {
+            elements.urlPathInput.addEventListener('keydown', handleUrlInputKeydown);
         }
         
         // Zoom controls
@@ -318,10 +330,28 @@
      * Update URL display
      */
     function updateUrlDisplay(url) {
-        if (elements.currentUrlDisplay) {
-            // Sanitize and display URL safely
-            const displayUrl = sanitizeUrlForDisplay(url);
-            elements.currentUrlDisplay.textContent = displayUrl;
+        if (elements.urlPathInput) {
+            try {
+                const urlObj = new URL(url);
+                // Extract path after the domain (remove leading slash)
+                let path = urlObj.pathname + urlObj.search + urlObj.hash;
+                if (path.startsWith('/')) {
+                    path = path.substring(1);
+                }
+                // Default to 'explore' if we're at the root
+                if (!path || path === '/') {
+                    path = 'explore';
+                }
+                elements.urlPathInput.value = path;
+            } catch (e) {
+                // Fallback to simple path extraction
+                const match = url.match(/cantina\.com\/(.*)/);
+                if (match) {
+                    elements.urlPathInput.value = match[1] || 'explore';
+                } else {
+                    elements.urlPathInput.value = 'explore';
+                }
+            }
         }
     }
 
@@ -377,6 +407,47 @@
         loadCantina(currentUrl);
     }
 
+    /**
+     * Handle URL form submission
+     */
+    function handleUrlFormSubmit(event) {
+        event.preventDefault();
+        
+        if (elements.urlPathInput) {
+            let path = elements.urlPathInput.value.trim();
+            
+            // Ensure path doesn't start with slash or full domain
+            if (path.startsWith('/')) {
+                path = path.substring(1);
+            }
+            if (path.startsWith('cantina.com/')) {
+                path = path.substring('cantina.com/'.length);
+            }
+            if (path.startsWith('https://cantina.com/')) {
+                path = path.substring('https://cantina.com/'.length);
+            }
+            
+            // Default to explore if empty
+            if (!path) {
+                path = 'explore';
+            }
+            
+            // Navigate to the path
+            const fullUrl = `${CANTINA_BASE_URL}/${path}`;
+            loadCantina(fullUrl);
+        }
+    }
+    
+    /**
+     * Handle Enter key in URL input
+     */
+    function handleUrlInputKeydown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            handleUrlFormSubmit(event);
+        }
+    }
+    
     /**
      * Zoom control functions
      */
