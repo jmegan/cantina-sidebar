@@ -4,6 +4,12 @@
 (function() {
     'use strict';
 
+    // Debug flag - set to false for production
+    const DEBUG = false;
+    const log = DEBUG ? console.log.bind(console) : () => {};
+    const error = DEBUG ? console.error.bind(console) : () => {};
+    const warn = DEBUG ? console.warn.bind(console) : () => {};
+
     // Configuration
     const CANTINA_BASE_URL = 'https://cantina.com';
     const CANTINA_EXPLORE_URL = `${CANTINA_BASE_URL}/explore`;
@@ -14,6 +20,13 @@
     const ALLOWED_DOMAINS = ['cantina.com', 'www.cantina.com'];
     const MAX_RETRY_ATTEMPTS = 3;
     const RETRY_DELAY_BASE = 1000; // Base delay for exponential backoff
+    
+    // Zoom Configuration
+    const ZOOM_MIN = 0.5; // 50%
+    const ZOOM_MAX = 2.0; // 200%
+    const ZOOM_STEP = 0.1; // 10% increments
+    const ZOOM_DEFAULT = 1.0; // 100%
+    const ZOOM_STORAGE_KEY = 'cantina_zoom_level';
 
     // DOM Elements
     const elements = {
@@ -21,6 +34,7 @@
         mainContainer: null,
         errorContainer: null,
         iframe: null,
+        iframeWrapper: null,
         refreshBtn: null,
         retryBtn: null,
         exploreBtn: null,
@@ -28,7 +42,10 @@
         homeBtn: null,
         currentUrlDisplay: null,
         copyUrlBtn: null,
-        incognitoBtn: null
+        zoomInBtn: null,
+        zoomOutBtn: null,
+        zoomResetBtn: null,
+        zoomLevelDisplay: null
     };
 
     // State
@@ -40,6 +57,7 @@
     let pollIntervalId = null;
     let retryAttempts = 0;
     let pendingNavigation = false;
+    let currentZoom = ZOOM_DEFAULT;
 
     /**
      * URL validation helper
@@ -52,7 +70,7 @@
                 hostname === domain || hostname.endsWith('.' + domain)
             );
         } catch (e) {
-            console.error('Invalid URL:', e);
+            error('Invalid URL:', e);
             return false;
         }
     }
@@ -92,6 +110,7 @@
         elements.mainContainer = document.getElementById('main-container');
         elements.errorContainer = document.getElementById('error-container');
         elements.iframe = document.getElementById('cantina-frame');
+        elements.iframeWrapper = document.getElementById('iframe-wrapper');
         elements.refreshBtn = document.getElementById('refresh-btn');
         elements.retryBtn = document.getElementById('retry-btn');
         elements.exploreBtn = document.getElementById('explore-btn');
@@ -99,10 +118,16 @@
         elements.homeBtn = document.getElementById('home-btn');
         elements.currentUrlDisplay = document.getElementById('current-url');
         elements.copyUrlBtn = document.getElementById('copy-url-btn');
-        elements.incognitoBtn = document.getElementById('incognito-btn');
+        elements.zoomInBtn = document.getElementById('zoom-in-btn');
+        elements.zoomOutBtn = document.getElementById('zoom-out-btn');
+        elements.zoomResetBtn = document.getElementById('zoom-reset-btn');
+        elements.zoomLevelDisplay = document.querySelector('.zoom-level');
 
         // Set up event listeners
         setupEventListeners();
+        
+        // Load saved zoom level
+        loadZoomLevel();
 
         // Start loading
         loadCantina(CANTINA_EXPLORE_URL);
@@ -142,14 +167,25 @@
         if (elements.copyUrlBtn) {
             elements.copyUrlBtn.addEventListener('click', handleCopyUrl);
         }
-
-        // Incognito button
-        if (elements.incognitoBtn) {
-            elements.incognitoBtn.addEventListener('click', handleIncognitoClick);
+        
+        // Zoom controls
+        if (elements.zoomInBtn) {
+            elements.zoomInBtn.addEventListener('click', handleZoomIn);
+        }
+        
+        if (elements.zoomOutBtn) {
+            elements.zoomOutBtn.addEventListener('click', handleZoomOut);
+        }
+        
+        if (elements.zoomResetBtn) {
+            elements.zoomResetBtn.addEventListener('click', handleZoomReset);
         }
 
         // Handle messages from iframe (if the site supports it)
         window.addEventListener('message', handleMessage);
+        
+        // Handle keyboard shortcuts for zoom
+        document.addEventListener('keydown', handleKeyboardShortcuts);
 
         // Try to detect navigation within iframe (limited by cross-origin policy)
         setupNavigationDetection();
@@ -170,6 +206,7 @@
             // Clear any existing interval
             if (pollIntervalId) {
                 clearInterval(pollIntervalId);
+                pollIntervalId = null;
             }
             
             // Check periodically if the iframe has navigated (workaround for cross-origin)
@@ -196,14 +233,14 @@
     function loadCantina(url) {
         // Validate URL before loading
         if (!isValidCantinaUrl(url)) {
-            console.error('Invalid Cantina URL:', url);
+            error('Invalid Cantina URL:', url);
             showError('Invalid URL. Only Cantina URLs are allowed.');
             return;
         }
 
         // Prevent concurrent navigations
         if (pendingNavigation) {
-            console.log('Navigation already in progress');
+            log('Navigation already in progress');
             return;
         }
 
@@ -248,7 +285,7 @@
             }
         } catch (e) {
             // Cross-origin access denied - this is expected
-            console.log('Iframe loaded (cross-origin restrictions apply)');
+            log('Iframe loaded (cross-origin restrictions apply)');
         }
 
         showMain();
@@ -294,7 +331,7 @@
      */
     function handleExplore(event) {
         event.preventDefault();
-        console.log('Navigating to Explore page');
+        log('Navigating to Explore page');
         loadCantina(CANTINA_EXPLORE_URL);
     }
 
@@ -303,7 +340,7 @@
      */
     function handleFeed(event) {
         event.preventDefault();
-        console.log('Navigating to Feed page');
+        log('Navigating to Feed page');
         loadCantina(CANTINA_FEED_URL);
     }
 
@@ -312,7 +349,7 @@
      */
     function handleHome(event) {
         event.preventDefault();
-        console.log('Navigating to Home page');
+        log('Navigating to Home page');
         loadCantina(CANTINA_HOME_URL);
     }
 
@@ -341,6 +378,122 @@
     }
 
     /**
+     * Zoom control functions
+     */
+    function handleZoomIn(event) {
+        event.preventDefault();
+        const newZoom = Math.min(currentZoom + ZOOM_STEP, ZOOM_MAX);
+        setZoomLevel(newZoom);
+    }
+    
+    function handleZoomOut(event) {
+        event.preventDefault();
+        const newZoom = Math.max(currentZoom - ZOOM_STEP, ZOOM_MIN);
+        setZoomLevel(newZoom);
+    }
+    
+    function handleZoomReset(event) {
+        event.preventDefault();
+        setZoomLevel(ZOOM_DEFAULT);
+    }
+    
+    function setZoomLevel(zoomLevel) {
+        currentZoom = zoomLevel;
+        
+        // Apply zoom to iframe wrapper
+        if (elements.iframeWrapper) {
+            elements.iframeWrapper.style.setProperty('--zoom-scale', zoomLevel);
+            
+            // Set data attribute for CSS adjustments
+            if (zoomLevel !== 1) {
+                elements.iframeWrapper.setAttribute('data-zoom', 'true');
+            } else {
+                elements.iframeWrapper.removeAttribute('data-zoom');
+            }
+        }
+        
+        // Update zoom display
+        if (elements.zoomLevelDisplay) {
+            const percentage = Math.round(zoomLevel * 100);
+            elements.zoomLevelDisplay.textContent = `${percentage}%`;
+        }
+        
+        // Save zoom level
+        saveZoomLevel(zoomLevel);
+        
+        // Update button states
+        updateZoomButtonStates();
+    }
+    
+    function updateZoomButtonStates() {
+        // Disable zoom out at minimum
+        if (elements.zoomOutBtn) {
+            elements.zoomOutBtn.disabled = currentZoom <= ZOOM_MIN;
+        }
+        
+        // Disable zoom in at maximum
+        if (elements.zoomInBtn) {
+            elements.zoomInBtn.disabled = currentZoom >= ZOOM_MAX;
+        }
+        
+        // Show reset button as active when not at default
+        if (elements.zoomResetBtn) {
+            if (currentZoom !== ZOOM_DEFAULT) {
+                elements.zoomResetBtn.classList.add('active');
+            } else {
+                elements.zoomResetBtn.classList.remove('active');
+            }
+        }
+    }
+    
+    function saveZoomLevel(zoomLevel) {
+        try {
+            localStorage.setItem(ZOOM_STORAGE_KEY, zoomLevel.toString());
+        } catch (e) {
+            error('Failed to save zoom level:', e);
+        }
+    }
+    
+    function loadZoomLevel() {
+        try {
+            const savedZoom = localStorage.getItem(ZOOM_STORAGE_KEY);
+            if (savedZoom) {
+                const zoomLevel = parseFloat(savedZoom);
+                if (!isNaN(zoomLevel) && zoomLevel >= ZOOM_MIN && zoomLevel <= ZOOM_MAX) {
+                    setZoomLevel(zoomLevel);
+                    return;
+                }
+            }
+        } catch (e) {
+            error('Failed to load zoom level:', e);
+        }
+        
+        // Set default zoom if no saved value
+        setZoomLevel(ZOOM_DEFAULT);
+    }
+    
+    function handleKeyboardShortcuts(event) {
+        // Check for Ctrl/Cmd + Plus/Minus/0
+        if (event.ctrlKey || event.metaKey) {
+            switch(event.key) {
+                case '+':
+                case '=': // Plus key without shift
+                    event.preventDefault();
+                    handleZoomIn(event);
+                    break;
+                case '-':
+                    event.preventDefault();
+                    handleZoomOut(event);
+                    break;
+                case '0':
+                    event.preventDefault();
+                    handleZoomReset(event);
+                    break;
+            }
+        }
+    }
+
+    /**
      * Handle copy URL button click
      */
     function handleCopyUrl(event) {
@@ -348,99 +501,60 @@
         
         // Only copy valid Cantina URLs
         if (!isValidCantinaUrl(currentUrl)) {
-            console.error('Cannot copy invalid URL');
+            error('Cannot copy invalid URL');
             return;
         }
         
-        navigator.clipboard.writeText(currentUrl).then(() => {
-            // Show success feedback
+        // Check if clipboard API is available
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                // Show success feedback
+                elements.copyUrlBtn.classList.add('copied');
+                
+                // Remove the class after animation
+                setTimeout(() => {
+                    elements.copyUrlBtn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                error('Failed to copy URL:', err);
+                // Fallback to older method
+                fallbackCopyToClipboard(currentUrl);
+            });
+        } else {
+            // Use fallback method for older browsers
+            fallbackCopyToClipboard(currentUrl);
+        }
+    }
+    
+    /**
+     * Fallback copy to clipboard for older browsers
+     */
+    function fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
             elements.copyUrlBtn.classList.add('copied');
-            
-            // Remove the class after animation
             setTimeout(() => {
                 elements.copyUrlBtn.classList.remove('copied');
             }, 2000);
-        }).catch(err => {
-            console.error('Failed to copy URL:', err);
-            // Show user-friendly error
-            alert('Failed to copy URL to clipboard. Please try again.');
-        });
-    }
-
-    /**
-     * Handle incognito button click
-     */
-    function handleIncognitoClick(event) {
-        event.preventDefault();
-        
-        // Validate URL before opening in incognito
-        if (!isValidCantinaUrl(currentUrl)) {
-            console.error('Cannot open invalid URL in incognito');
-            return;
+        } catch (err) {
+            error('Fallback copy failed:', err);
         }
-        
-        // Open current URL in incognito window
-        chrome.runtime.sendMessage({
-            action: 'openIncognito',
-            url: currentUrl
-        }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error('Runtime error:', chrome.runtime.lastError);
-                // Don't show alert for minor errors
-                return;
-            }
-            
-            if (response && response.success) {
-                console.log('Opened in incognito window');
-                // Show a notification or feedback
-                showIncognitoNotification();
-            } else if (response && response.error) {
-                console.error('Failed to open in incognito:', response.error);
-                // Only show user-friendly message without technical details
-                if (response.error.includes('Incognito mode is disabled')) {
-                    alert('Please enable incognito mode in Chrome settings to use this feature.');
-                }
-            }
-        });
+        document.body.removeChild(textArea);
     }
 
-    /**
-     * Show incognito notification
-     */
-    function showIncognitoNotification() {
-        // Create a temporary notification element
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--primary-color);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: var(--shadow-lg);
-            z-index: 10000;
-            animation: slideIn 0.3s ease-out;
-            font-size: 14px;
-        `;
-        notification.textContent = 'Opened in incognito window';
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 300);
-        }, 3000);
-    }
 
     /**
      * Handle iframe load error
      */
-    function handleIframeError(error) {
+    function handleIframeError(err) {
         clearTimeout(loadTimer);
-        console.error('Failed to load Cantina:', error);
+        error('Failed to load Cantina:', err);
         showError('Failed to load Cantina. The site may be temporarily unavailable.');
     }
 
@@ -448,7 +562,7 @@
      * Handle load timeout
      */
     function handleLoadTimeout() {
-        console.warn('Loading Cantina timed out');
+        warn('Loading Cantina timed out');
         pendingNavigation = false;
         
         // Check if we're online
@@ -458,7 +572,7 @@
             // Implement exponential backoff retry
             retryAttempts++;
             const retryDelay = RETRY_DELAY_BASE * Math.pow(2, retryAttempts - 1);
-            console.log(`Retrying in ${retryDelay}ms (attempt ${retryAttempts}/${MAX_RETRY_ATTEMPTS})`);
+            log(`Retrying in ${retryDelay}ms (attempt ${retryAttempts}/${MAX_RETRY_ATTEMPTS})`);
             
             setTimeout(() => {
                 loadCantina(currentUrl);
@@ -477,11 +591,11 @@
         try {
             const origin = new URL(event.origin);
             if (!ALLOWED_DOMAINS.includes(origin.hostname)) {
-                console.warn('Rejected message from untrusted origin:', event.origin);
+                warn('Rejected message from untrusted origin:', event.origin);
                 return;
             }
         } catch (e) {
-            console.error('Invalid origin:', event.origin);
+            error('Invalid origin:', event.origin);
             return;
         }
 
@@ -561,6 +675,7 @@
         // Remove event listeners
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('message', handleMessage);
+        document.removeEventListener('keydown', handleKeyboardShortcuts);
         
         // Clean up iframe listeners
         if (elements.iframe) {

@@ -127,6 +127,37 @@ html, body {
     gap: 4px;
 }
 
+/* Zoom Controls */
+.zoom-controls {
+    display: flex;
+    gap: 2px;
+    padding: 0 4px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
+}
+
+.zoom-btn {
+    position: relative;
+}
+
+.zoom-level {
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    min-width: 36px;
+    text-align: center;
+}
+
+#zoom-reset-btn {
+    width: auto;
+    padding: 0 8px;
+}
+
+#zoom-reset-btn:hover .zoom-level {
+    text-decoration: underline;
+}
+
 .nav-btn,
 .refresh-btn {
     width: 32px; /* Slightly larger for better touch targets */
@@ -320,6 +351,24 @@ html, body {
     flex: 1;
     position: relative;
     background: var(--bg-tertiary);
+    overflow: auto;
+}
+
+/* Iframe Wrapper for scaling */
+.iframe-wrapper {
+    --zoom-scale: 1;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+    transform: scale(var(--zoom-scale));
+    transition: transform var(--transition-base);
+    will-change: transform;
+}
+
+/* Adjust wrapper dimensions when zoomed */
+.iframe-wrapper[data-zoom="true"] {
+    width: calc(100% / var(--zoom-scale));
+    height: calc(100% / var(--zoom-scale));
 }
 
 #cantina-frame {
