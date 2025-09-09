@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cantina Chatbot Explorer</title>
+    <title>Cantina.com Side Panel</title>
     <link rel="stylesheet" href="panel.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <div id="loading-container" class="loading-container" role="status" aria-live="polite">
         <div class="loader">
             <div class="spinner" aria-hidden="true"></div>
-            <p class="loading-text">Loading Cantina Explorer...</p>
+            <p class="loading-text">Loading Cantina...</p>
         </div>
     </div>
 
@@ -21,8 +21,7 @@
         <header class="header">
             <div class="header-content">
                 <h1 class="header-title">
-                    <span class="logo">🤖</span>
-                    Cantina Explorer
+                    <img src="icons/cantinawordmark.svg" alt="Cantina" class="cantina-wordmark">
                 </h1>
                 <nav class="header-actions" role="navigation" aria-label="Navigation buttons">
                     <button id="explore-btn" class="nav-btn" title="Go to Explore" aria-label="Navigate to Explore page">
@@ -106,7 +105,7 @@
             <div class="error-icon" aria-hidden="true">⚠️</div>
             <h2 class="error-title">Unable to Load Cantina</h2>
             <p class="error-message">
-                The Cantina Explorer couldn't be loaded in the side panel. 
+                Cantina couldn't be loaded in the side panel. 
                 This might be due to network issues or embedding restrictions.
             </p>
             <div class="error-actions" role="group" aria-label="Error recovery options">

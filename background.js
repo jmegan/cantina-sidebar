@@ -1,4 +1,4 @@
-// Service worker for Cantina Chatbot Explorer
+// Service worker for Cantina.com Side Panel
 // Handles side panel behavior and header modification for iframe embedding
 
 // Debug flag - set to false for production

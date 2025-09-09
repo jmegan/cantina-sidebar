@@ -1,4 +1,4 @@
-# 🤖 Cantina Chatbot Explorer - Chrome Extension
+# 🤖 Cantina.com Side Panel - Chrome Extension
 
 A powerful Chrome extension that brings Cantina's AI chatbot directory directly to your browser's side panel, enabling seamless browsing and exploration of AI assistants while you work.
 

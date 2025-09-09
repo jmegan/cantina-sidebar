@@ -1,4 +1,4 @@
-// Panel JavaScript for Cantina Chatbot Explorer
+// Panel JavaScript for Cantina.com Side Panel
 // Handles iframe loading, navigation, and URL tracking
 
 (function() {

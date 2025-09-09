@@ -1,4 +1,4 @@
-/* Modern CSS for Cantina Chatbot Explorer Side Panel */
+/* Modern CSS for Cantina.com Side Panel */
 
 /* CSS Reset and Base Styles */
 * {
@@ -110,16 +110,14 @@ html, body {
 }
 
 .header-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: white;
     display: flex;
     align-items: center;
-    gap: 6px;
 }
 
-.logo {
-    font-size: 18px;
+.cantina-wordmark {
+    height: 20px;
+    width: auto;
+    filter: brightness(0) invert(1); /* Makes SVG white */
 }
 
 .header-actions {
