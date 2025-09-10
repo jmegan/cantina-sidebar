@@ -2,7 +2,7 @@
 
 A Chrome extension that embeds Cantina's AI chatbot directory in Chrome's side panel for seamless browsing while you work.
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue)
+![Version](https://img.shields.io/badge/version-0.8.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome](https://img.shields.io/badge/Chrome-114%2B-orange)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-purple)
@@ -138,7 +138,11 @@ Creates a ZIP file ready for Chrome Web Store submission.
 
 ## 📊 Version History
 
-### v0.7.0 (Current)
+### v0.8.0 (Current)
+- Fixed missing icon files issue for Chrome Web Store submission
+- Regenerated required icon sizes (16x16, 48x48, 128x128)
+
+### v0.7.0
 - Added editable URL path navigation
 - Users can navigate by editing the path directly
 

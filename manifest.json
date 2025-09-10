@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cantina.com Side Panel",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Browse Cantina's chatbot directory in Chrome's side panel for quick access while browsing",
   "author": "Cantina",
   
